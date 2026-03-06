@@ -1,6 +1,21 @@
 // lib/models/client_model.dart
 
-enum ClientStatus { solvente, moroso, suspendido, retirado }
+enum ClientStatus {
+  solvente,
+  moroso,
+  suspendido,
+  retirado;
+
+  static ClientStatus fromString(String s) {
+    switch (s.toLowerCase()) {
+      case 'solvente':   return ClientStatus.solvente;
+      case 'moroso':     return ClientStatus.moroso;
+      case 'suspendido': return ClientStatus.suspendido;
+      case 'retirado':   return ClientStatus.retirado;
+      default:           return ClientStatus.solvente;
+    }
+  }
+}
 
 class Client {
   final String id;
@@ -32,25 +47,11 @@ class Client {
       dni: (json['dni'] as String?) ?? '',
       phone: (json['phone'] as String?) ?? '',
       sectorName: (json['sector_name'] as String?) ?? '',
-      status: _statusFromString((json['status'] as String?) ?? ''),
+      status: ClientStatus.fromString((json['status'] as String?) ?? ''),
       balance: (json['balance'] as num?)?.toDouble() ?? 0.0,
       planName: (json['plan_name'] as String?) ?? '',
       planPrice: (json['plan_price'] as num?)?.toDouble() ?? 0.0,
     );
   }
 
-  static ClientStatus _statusFromString(String s) {
-    switch (s.toLowerCase()) {
-      case 'solvente':
-        return ClientStatus.solvente;
-      case 'moroso':
-        return ClientStatus.moroso;
-      case 'suspendido':
-        return ClientStatus.suspendido;
-      case 'retirado':
-        return ClientStatus.retirado;
-      default:
-        return ClientStatus.solvente;
-    }
-  }
 }

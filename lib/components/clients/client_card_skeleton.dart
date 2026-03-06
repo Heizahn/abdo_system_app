@@ -50,10 +50,16 @@ class _SkeletonBody extends StatelessWidget {
   Widget build(BuildContext context) {
     final base = Theme.of(context).colorScheme.onSurface.withValues(alpha: opacity);
 
+    final theme = Theme.of(context);
     return Container(
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
+        color: theme.colorScheme.surface,
         borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: theme.brightness == Brightness.light
+              ? theme.colorScheme.onSurface.withValues(alpha: 0.10)
+              : theme.colorScheme.onSurface.withValues(alpha: 0.06),
+        ),
       ),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: Row(

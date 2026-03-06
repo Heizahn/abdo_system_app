@@ -15,10 +15,17 @@ class ClientCard extends StatelessWidget {
     final statusColor = _statusColor(context, client.status);
     final statusLabel = _statusLabel(client.status);
 
+    final borderColor = theme.brightness == Brightness.light
+        ? theme.colorScheme.onSurface.withValues(alpha: 0.10)
+        : theme.colorScheme.onSurface.withValues(alpha: 0.06);
+
     return RepaintBoundary(
       child: Material(
         color: theme.colorScheme.surface,
-        borderRadius: BorderRadius.circular(14),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(14),
+          side: BorderSide(color: borderColor),
+        ),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
           onTap: onTap,

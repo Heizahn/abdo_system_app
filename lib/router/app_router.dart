@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import '../screens/login_screen.dart';
 import '../screens/dashboard_screen.dart';
 import '../screens/clients_screen.dart';
+import '../screens/client_detail_screen.dart';
 import '../services/auth_service.dart';
 import '../config/roles.dart';
 
@@ -57,6 +58,12 @@ class AppRouter {
       GoRoute(
         path: '/clients',
         builder: (context, state) => const ClientsScreen(),
+      ),
+      GoRoute(
+        path: '/client/:id',
+        builder: (context, state) => ClientDetailScreen(
+          clientId: state.pathParameters['id']!,
+        ),
       ),
     ],
   );

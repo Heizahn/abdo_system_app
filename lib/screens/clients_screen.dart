@@ -4,6 +4,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import 'package:go_router/go_router.dart';
 import '../layouts/main_layout.dart';
 import '../models/client_model.dart';
 import '../providers/client_provider.dart';
@@ -122,9 +123,7 @@ class _ClientsScreenState extends State<ClientsScreen> {
           padding: const EdgeInsets.only(bottom: 8),
           child: ClientCard(
             client: client,
-            onTap: () {
-              // TODO: navegar a detalle del cliente
-            },
+            onTap: () => context.push('/client/${client.id}'),
           ),
         );
       },
