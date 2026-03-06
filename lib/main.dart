@@ -7,6 +7,7 @@ import 'package:abdo_system_app/theme/app_theme.dart';
 import 'package:abdo_system_app/providers/auth_provider.dart';
 import 'package:abdo_system_app/providers/theme_provider.dart';
 import 'package:abdo_system_app/providers/provider_provider.dart';
+import 'package:abdo_system_app/providers/client_provider.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -19,6 +20,7 @@ Future<void> main() async {
         ChangeNotifierProvider(create: (_) => AuthProvider()..loadUser()),
         ChangeNotifierProvider(create: (_) => ThemeProvider()),
         ChangeNotifierProvider(create: (_) => ProviderProvider()),
+        ChangeNotifierProvider(create: (_) => ClientProvider()),
       ],
       child: const MyApp(),
     ),
