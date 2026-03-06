@@ -35,7 +35,7 @@ class MyApp extends StatelessWidget {
     final themeProvider = context.watch<ThemeProvider>();
 
     return MaterialApp.router(
-      title: 'SYSTEM ABDO77',
+      title: 'SISTEMA ABDO77',
       debugShowCheckedModeBanner: false,
       // Aquí conectamos tus temas
       theme: AppTheme.lightTheme,
