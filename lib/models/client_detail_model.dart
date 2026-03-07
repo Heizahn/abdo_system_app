@@ -20,6 +20,7 @@ class ClientDetail {
   final String? gps;
   // Red / Dispositivo
   final String? ip;
+  final String? ipPppoe;
   final String? sn;
   final String? mac;
   final String? clientType;
@@ -27,6 +28,7 @@ class ClientDetail {
   final String? commentary;
   final String? creator;
   final String? editor;
+  final String? installer;
   final String? suspender;
   final String? createdAt;
   final String? suspendedAt;
@@ -52,12 +54,14 @@ class ClientDetail {
     required this.address,
     this.gps,
     this.ip,
+    this.ipPppoe,
     this.sn,
     this.mac,
     this.clientType,
     this.commentary,
     this.creator,
     this.editor,
+    this.installer,
     this.suspender,
     this.createdAt,
     this.suspendedAt,
@@ -84,12 +88,14 @@ class ClientDetail {
       address: (json['address'] as String?) ?? '',
       gps: json['gps'] as String?,
       ip: json['ip'] as String?,
+      ipPppoe: json['ip_pppoe'] as String?,
       sn: json['sn'] as String?,
       mac: json['mac'] as String?,
       clientType: json['client_type'] as String?,
       commentary: json['commentary'] as String?,
       creator: json['creator'] as String?,
       editor: json['editor'] as String?,
+      installer: json['installer'] as String?,
       suspender: json['suspender'] as String?,
       createdAt: json['created_at'] as String?,
       suspendedAt: json['suspended_at'] as String?,

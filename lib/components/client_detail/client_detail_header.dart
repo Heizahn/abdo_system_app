@@ -141,10 +141,6 @@ class ClientDetailHeader extends StatelessWidget {
             ],
           ),
 
-          const SizedBox(height: 16),
-
-          // ── Botones de acción ─────────────────────────────────────────
-          _ActionButtons(client: client),
         ],
       ),
     );
@@ -167,95 +163,5 @@ class ClientDetailHeader extends StatelessWidget {
       case ClientStatus.suspendido: return 'Suspendido';
       case ClientStatus.retirado:   return 'Retirado';
     }
-  }
-}
-
-// ─── Botones de acción ────────────────────────────────────────────────────────
-
-class _ActionButtons extends StatelessWidget {
-  final ClientDetail client;
-
-  const _ActionButtons({required this.client});
-
-  @override
-  Widget build(BuildContext context) {
-    final isSuspendido = client.status == ClientStatus.suspendido;
-    final isRetirado   = client.status == ClientStatus.retirado;
-
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      children: [
-        // Suspender  → visible si NO está suspendido ni retirado
-        // Activar    → visible si está suspendido
-        if (!isRetirado)
-          _ActionButton(
-            label: isSuspendido ? 'Activar' : 'Suspender',
-            icon: isSuspendido
-                ? Icons.play_arrow_rounded
-                : Icons.pause_rounded,
-            variant: isSuspendido
-                ? _ButtonVariant.success
-                : _ButtonVariant.warning,
-            onPressed: () {
-              // TODO: implementar suspensión / activación
-            },
-          ),
-
-        // Retirar → SOLO si está suspendido
-        if (isSuspendido)
-          _ActionButton(
-            label: 'Retirar',
-            icon: Icons.logout_rounded,
-            variant: _ButtonVariant.error,
-            onPressed: () {
-              // TODO: implementar retiro
-            },
-          ),
-      ],
-    );
-  }
-}
-
-enum _ButtonVariant { outlined, success, warning, error }
-
-class _ActionButton extends StatelessWidget {
-  final String label;
-  final IconData icon;
-  final _ButtonVariant variant;
-  final VoidCallback onPressed;
-
-  const _ActionButton({
-    required this.label,
-    required this.icon,
-    required this.variant,
-    required this.onPressed,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    final color = switch (variant) {
-      _ButtonVariant.outlined => theme.colorScheme.primary,
-      _ButtonVariant.success  => theme.extension<AppColors>()!.success,
-      _ButtonVariant.warning  => theme.colorScheme.tertiary,
-      _ButtonVariant.error    => theme.colorScheme.error,
-    };
-
-    return OutlinedButton.icon(
-      onPressed: onPressed,
-      icon: Icon(icon, size: 16),
-      label: Text(label),
-      style: OutlinedButton.styleFrom(
-        foregroundColor: color,
-        side: BorderSide(color: color.withValues(alpha: 0.5)),
-        backgroundColor: color.withValues(alpha: 0.06),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-        textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
-        shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10)),
-      ),
-    );
   }
 }

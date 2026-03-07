@@ -73,6 +73,7 @@ class _ClientDetailView extends StatelessWidget {
     final theme = Theme.of(context);
     final devices = DevicesInfoData(
       ip: client.ip,
+      ipPppoe: client.ipPppoe,
       sn: client.sn,
       mac: client.mac,
       clientType: client.clientType,
