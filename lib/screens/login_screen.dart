@@ -29,6 +29,19 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _isLoading = false;
   String? _generalErrorMessage;
 
+  bool get _emailNeedsDomain => !_emailController.text.contains('@');
+
+  String get _resolvedEmail {
+    final text = _emailController.text.trim();
+    return text.contains('@') ? text : '$text@abdo.com';
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _emailController.addListener(() => setState(() {}));
+  }
+
   @override
   void dispose() {
     _emailController.dispose();
@@ -48,7 +61,7 @@ class _LoginScreenState extends State<LoginScreen> {
       final response = await apiClient.post(
         '/auth-user/login',
         data: {
-          'email': _emailController.text,
+          'email': _resolvedEmail,
           'password': _passwordController.text,
         },
       );
@@ -170,18 +183,21 @@ class _LoginScreenState extends State<LoginScreen> {
                         keyboardType: TextInputType.emailAddress,
                         textInputAction: TextInputAction.next,
                         validator: (value) {
-                          if (value == null ||
-                              value.isEmpty ||
-                              !value.contains('@')) {
+                          if (value == null || value.trim().isEmpty) {
                             return 'Requerido';
                           }
                           return null;
                         },
-                        decoration: const InputDecoration(
-                          hintText: 'ejemplo@abdo77.com',
-                          prefixIcon: Icon(
+                        decoration: InputDecoration(
+                          hintText: 'ejemplo',
+                          prefixIcon: const Icon(
                             Icons.business_center_outlined,
                             size: 20,
+                          ),
+                          suffixText: _emailNeedsDomain ? '@abdo.com' : null,
+                          suffixStyle: TextStyle(
+                            color: theme.colorScheme.onSurfaceVariant,
+                            fontWeight: FontWeight.w500,
                           ),
                         ),
                       ),
