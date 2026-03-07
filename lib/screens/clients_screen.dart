@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import 'package:go_router/go_router.dart';
-import '../layouts/main_layout.dart';
 import '../models/client_model.dart';
 import '../providers/client_provider.dart';
 import '../components/clients/client_card.dart';
@@ -161,10 +160,7 @@ class _ClientsScreenState extends State<ClientsScreen> {
         context.watch<AuthProvider>().user?.role == Roles.superadmin;
     final filtered = _applyFilters(clientProvider.clients);
 
-    return MainLayout(
-      title: 'Clientes',
-      actions: [if (isSuperAdmin) const ProviderDropdown()],
-      child: Column(
+    return Column(
         children: [
           // ─── BARRA DE BÚSQUEDA ───────────────────────────────────────────
           Padding(
@@ -228,7 +224,6 @@ class _ClientsScreenState extends State<ClientsScreen> {
             child: _buildBody(context, clientProvider, filtered),
           ),
         ],
-      ),
     );
   }
 }

@@ -1,213 +1,144 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart'; // Para poder salir de la app (SystemNavigator)
-import 'package:flutter_svg/flutter_svg.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
-import '../providers/auth_provider.dart'; // Asegúrate de tener esta ruta correcta
+import '../providers/auth_provider.dart';
+import '../providers/provider_provider.dart';
+import '../config/roles.dart';
 import '../components/navigation/profile_button.dart';
+import '../components/navigation/provider_dropdown.dart';
+import '../screens/dashboard_screen.dart';
+import '../screens/clients_screen.dart';
 
-// 1. AHORA ES UN STATEFUL WIDGET
 class MainLayout extends StatefulWidget {
-  final Widget child;
-  final String title;
-  final List<Widget>? actions;
+  final int initialIndex;
 
-  const MainLayout({
-    super.key,
-    required this.child,
-    required this.title,
-    this.actions,
-  });
+  const MainLayout({super.key, required this.initialIndex});
 
   @override
   State<MainLayout> createState() => _MainLayoutState();
 }
 
 class _MainLayoutState extends State<MainLayout> {
-  // LLAVE MAESTRA: Nos permite preguntarle al Scaffold su estado desde cualquier lado
-  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+  static const _tabs = [
+    _TabItem(icon: Icons.dashboard_rounded, label: 'Panel',    path: '/home'),
+    _TabItem(icon: Icons.group_rounded,     label: 'Clientes', path: '/clients'),
+  ];
+
+  late PageController _pageController;
+  late int _currentIndex;
+
+  @override
+  void initState() {
+    super.initState();
+    _currentIndex = widget.initialIndex;
+    _pageController = PageController(initialPage: widget.initialIndex);
+  }
+
+  @override
+  void didUpdateWidget(MainLayout old) {
+    super.didUpdateWidget(old);
+    // Solo si el índice cambia por navegación externa (ej: redirect por rol)
+    if (old.initialIndex != widget.initialIndex) {
+      _pageController.jumpToPage(widget.initialIndex);
+      setState(() => _currentIndex = widget.initialIndex);
+    }
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  void _onPageChanged(int index) {
+    // Solo actualiza el índice visualmente — sin llamar context.go()
+    // para que el NavigationBar no se mueva con la transición de GoRouter
+    setState(() => _currentIndex = index);
+  }
+
+  void _onTabTapped(int index) {
+    _pageController.animateToPage(
+      index,
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeInOut,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isSuperAdmin =
+        context.watch<AuthProvider>().user?.role == Roles.superadmin;
 
-    // Recuperamos al usuario real (¡No perdamos esta funcionalidad!)
-    final user = context.watch<AuthProvider>().user;
-
-    // 2. POPSCOPE INTERCEPTA EL BOTÓN DE "ATRÁS" DE ANDROID
     return PopScope(
-      canPop:
-          false, // Le decimos a Flutter: "Espera, yo decido qué hace el botón de atrás"
+      canPop: false,
       onPopInvoked: (didPop) {
         if (didPop) return;
-
-        // ¿Está el menú lateral abierto?
-        if (_scaffoldKey.currentState?.isDrawerOpen ?? false) {
-          // Sí -> Ciérralo, pero NO salgas de la ruta
-          _scaffoldKey.currentState?.closeDrawer();
+        if (GoRouter.of(context).canPop()) {
+          GoRouter.of(context).pop();
         } else {
-          // No -> Comportamiento normal
-          if (GoRouter.of(context).canPop()) {
-            // Si hay historial de navegación, ve a la pantalla anterior
-            GoRouter.of(context).pop();
-          } else {
-            // Si es la pantalla principal, cierra la aplicación nativamente
-            SystemNavigator.pop();
-          }
+          SystemNavigator.pop();
         }
       },
       child: Scaffold(
-        key: _scaffoldKey, // Asignamos la llave al Scaffold
         backgroundColor: theme.scaffoldBackgroundColor,
+
+        // ── AppBar ──────────────────────────────────────────────────────
         appBar: AppBar(
           backgroundColor: Colors.transparent,
           elevation: 0,
           title: Text(
-            widget.title, // Ahora usamos widget.title por ser StatefulWidget
+            _tabs[_currentIndex].label,
             style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 20),
           ),
-          actions: [...?widget.actions, const ProfileButton()],
+          actions: [
+            if (isSuperAdmin)
+              Padding(
+                padding: const EdgeInsets.only(right: 4),
+                child: Center(
+                  child: const ProviderDropdown(showAllOption: true),
+                ),
+              ),
+            const ProfileButton(),
+          ],
         ),
-        drawer: Drawer(
-          backgroundColor: theme.colorScheme.surface,
-          child: SafeArea(
-            child: Column(
-              children: [
-                Padding(
-                  padding: const EdgeInsets.all(24.0),
-                  child: SvgPicture.asset(
-                    'lib/assets/logo.svg',
-                    height: 40,
-                    colorFilter: theme.brightness == Brightness.dark
-                        ? const ColorFilter.mode(Colors.white, BlendMode.srcIn)
-                        : null,
-                  ),
-                ),
 
-                // MUESTRA EL NOMBRE DEL USUARIO DEBAJO DEL LOGO
-                if (user != null)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 16.0),
-                    child: Text(
-                      'Hola, ${user.name}',
-                      style: theme.textTheme.titleSmall?.copyWith(
-                        color: theme.colorScheme.primary,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-
-                const Divider(height: 1),
-                Expanded(
-                  child: ListView(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 16,
-                    ),
-                    children: const [
-                      _DrawerItem(
-                        icon: Icons.dashboard_rounded,
-                        title: 'Panel',
-                        path: '/home',
-                      ),
-                      _DrawerItem(
-                        icon: Icons.group_rounded,
-                        title: 'Clientes',
-                        path: '/clients',
-                      ),
-                      _DrawerItem(
-                        icon: Icons.payments_rounded,
-                        title: 'Pagos',
-                        path: '/payments',
-                      ),
-                      _DrawerItem(
-                        icon: Icons.speed_rounded,
-                        title: 'Planes',
-                        path: '/services',
-                      ),
-                    ],
-                  ),
-                ),
-                const Divider(height: 1),
-                Padding(
-                  padding: const EdgeInsets.all(12.0),
-                  child: ListTile(
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    leading: Icon(
-                      Icons.logout_rounded,
-                      color: theme.colorScheme.error,
-                    ),
-                    title: Text(
-                      'Cerrar Sesión',
-                      style: TextStyle(
-                        color: theme.colorScheme.error,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    onTap: () async {
-                      await Provider.of<AuthProvider>(
-                        context,
-                        listen: false,
-                      ).logout();
-                      if (context.mounted) context.go('/login');
-                    },
-                  ),
-                ),
-              ],
-            ),
-          ),
+        // ── PageView ────────────────────────────────────────────────────
+        body: PageView(
+          controller: _pageController,
+          onPageChanged: _onPageChanged,
+          children: const [
+            DashboardScreen(),
+            ClientsScreen(),
+          ],
         ),
-        body: widget.child, // Ahora usamos widget.child
+
+        // ── NavigationBar ───────────────────────────────────────────────
+        bottomNavigationBar: NavigationBar(
+          selectedIndex: _currentIndex,
+          onDestinationSelected: _onTabTapped,
+          destinations: _tabs.map((tab) {
+            return NavigationDestination(
+              icon: Icon(tab.icon),
+              label: tab.label,
+            );
+          }).toList(),
+        ),
       ),
     );
   }
 }
 
-// Widget privado para los items del Drawer (Queda exactamente igual)
-class _DrawerItem extends StatelessWidget {
+class _TabItem {
   final IconData icon;
-  final String title;
+  final String label;
   final String path;
 
-  const _DrawerItem({
+  const _TabItem({
     required this.icon,
-    required this.title,
+    required this.label,
     required this.path,
   });
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isSelected = GoRouterState.of(
-      context,
-    ).matchedLocation.startsWith(path);
-
-    return ListTile(
-      selected: isSelected,
-      selectedTileColor: theme.colorScheme.primary.withOpacity(0.1),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      leading: Icon(
-        icon,
-        color: isSelected
-            ? theme.colorScheme.primary
-            : theme.colorScheme.onSurfaceVariant,
-      ),
-      title: Text(
-        title,
-        style: TextStyle(
-          fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
-          color: isSelected
-              ? theme.colorScheme.primary
-              : theme.colorScheme.onSurface,
-        ),
-      ),
-      onTap: () {
-        Navigator.pop(context); // Cierra el drawer
-        if (!isSelected) context.go(path); // Navega si es una ruta nueva
-      },
-    );
-  }
 }

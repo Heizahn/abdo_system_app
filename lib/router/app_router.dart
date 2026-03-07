@@ -1,15 +1,17 @@
 // lib/router/app_router.dart
 import 'package:go_router/go_router.dart';
 import '../screens/login_screen.dart';
-import '../screens/dashboard_screen.dart';
-import '../screens/clients_screen.dart';
 import '../screens/client_detail_screen.dart';
+import '../layouts/main_layout.dart';
+import '../screens/not_found_screen.dart';
 import '../services/auth_service.dart';
 import '../config/roles.dart';
 
 class AppRouter {
   static final router = GoRouter(
     initialLocation: '/login',
+    errorBuilder: (context, state) =>
+        NotFoundScreen(path: state.uri.toString()),
 
     // REDIRECCIÓN GLOBAL Y PROTECCIÓN DE RUTAS
     redirect: (context, state) async {
@@ -53,11 +55,11 @@ class AppRouter {
       GoRoute(path: '/login', builder: (context, state) => const LoginScreen()),
       GoRoute(
         path: '/home',
-        builder: (context, state) => const DashboardScreen(),
+        builder: (context, state) => const MainLayout(initialIndex: 0),
       ),
       GoRoute(
         path: '/clients',
-        builder: (context, state) => const ClientsScreen(),
+        builder: (context, state) => const MainLayout(initialIndex: 1),
       ),
       GoRoute(
         path: '/client/:id',
