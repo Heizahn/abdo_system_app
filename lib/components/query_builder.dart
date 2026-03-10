@@ -108,7 +108,13 @@ class _QueryBuilderState<T> extends State<QueryBuilder<T>> {
   }
 
   void _onCacheUpdate() {
-    if (mounted) setState(() {});
+    if (!mounted) return;
+    setState(() {});
+    // Si los datos fueron invalidados, disparar re-fetch
+    if (!queryCache.isFresh(widget.queryKey, widget.staleTime) &&
+        !_isFetching) {
+      _doFetch();
+    }
   }
 
   void _setupRefetchTimer() {
