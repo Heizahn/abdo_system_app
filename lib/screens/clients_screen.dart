@@ -136,6 +136,7 @@ class _ClientsScreenState extends State<ClientsScreen> {
   }
 
   Map<ClientStatus?, int> _countsByStatus(List<Client> base) {
+    // Base con búsqueda aplicada
     final searched = _searchQuery.isEmpty
         ? base
         : base.where((c) {
@@ -145,15 +146,20 @@ class _ClientsScreenState extends State<ClientsScreen> {
                 c.sectorName.toLowerCase().contains(_searchQuery);
           }).toList();
 
+    // Base activos (sin retirados) para los chips Todos/Solventes/Morosos/Suspendidos
+    final activos = searched
+        .where((c) => c.status != ClientStatus.retirado)
+        .toList();
+
     return {
-      null: searched.where((c) => c.status != ClientStatus.retirado).length,
-      ClientStatus.solvente: searched
+      null: activos.length,
+      ClientStatus.solvente: activos
           .where((c) => c.status == ClientStatus.solvente)
           .length,
-      ClientStatus.moroso: searched
+      ClientStatus.moroso: activos
           .where((c) => c.status == ClientStatus.moroso)
           .length,
-      ClientStatus.suspendido: searched
+      ClientStatus.suspendido: activos
           .where((c) => c.status == ClientStatus.suspendido)
           .length,
       ClientStatus.retirado: searched
