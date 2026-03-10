@@ -60,10 +60,7 @@ class _LoginScreenState extends State<LoginScreen> {
     try {
       final response = await apiClient.post(
         '/auth-user/login',
-        data: {
-          'email': _resolvedEmail,
-          'password': _passwordController.text,
-        },
+        data: {'email': _resolvedEmail, 'password': _passwordController.text},
       );
 
       if (response.statusCode == 200) {
@@ -74,10 +71,10 @@ class _LoginScreenState extends State<LoginScreen> {
         await AuthService.saveKeepSession(_keepSession);
 
         if (!mounted) return;
-        
+
         // 🔥 Cargamos la info del usuario (nombre, rol, etc.) ANTES de navegar
         await Provider.of<AuthProvider>(context, listen: false).loadUser();
-        
+
         if (!mounted) return;
         context.go('/home');
       }
@@ -140,10 +137,14 @@ class _LoginScreenState extends State<LoginScreen> {
                           child: Container(
                             padding: const EdgeInsets.all(16),
                             decoration: BoxDecoration(
-                              color: theme.colorScheme.error.withOpacity(0.08),
+                              color: theme.colorScheme.error.withValues(
+                                alpha: 0.08,
+                              ),
                               borderRadius: BorderRadius.circular(8),
                               border: Border.all(
-                                color: theme.colorScheme.error.withOpacity(0.3),
+                                color: theme.colorScheme.error.withValues(
+                                  alpha: 0.3,
+                                ),
                               ),
                             ),
                             child: Row(

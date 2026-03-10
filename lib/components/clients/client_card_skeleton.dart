@@ -21,9 +21,10 @@ class _ClientCardSkeletonState extends State<ClientCardSkeleton>
       vsync: this,
       duration: const Duration(milliseconds: 900),
     )..repeat(reverse: true);
-    _opacity = Tween<double>(begin: 0.25, end: 0.55).animate(
-      CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut),
-    );
+    _opacity = Tween<double>(
+      begin: 0.25,
+      end: 0.55,
+    ).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut));
   }
 
   @override
@@ -48,7 +49,9 @@ class _SkeletonBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final base = Theme.of(context).colorScheme.onSurface.withValues(alpha: opacity);
+    final base = Theme.of(
+      context,
+    ).colorScheme.onSurface.withValues(alpha: opacity);
 
     final theme = Theme.of(context);
     return Container(
@@ -76,9 +79,7 @@ class _SkeletonBody extends StatelessWidget {
                 // Nombre + badge
                 Row(
                   children: [
-                    Expanded(
-                      child: _Box(height: 13, radius: 4, color: base),
-                    ),
+                    Expanded(child: _Box(height: 13, radius: 4, color: base)),
                     const SizedBox(width: 8),
                     _Box(width: 64, height: 20, radius: 10, color: base),
                   ],
@@ -139,7 +140,7 @@ class ClientCardSkeletonList extends StatelessWidget {
       physics: const NeverScrollableScrollPhysics(),
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
       itemCount: count,
-      itemBuilder: (_, __) => const Padding(
+      itemBuilder: (_, _) => const Padding(
         padding: EdgeInsets.only(bottom: 8),
         child: ClientCardSkeleton(),
       ),

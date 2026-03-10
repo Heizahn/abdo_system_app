@@ -4,7 +4,6 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../providers/auth_provider.dart';
-import '../providers/provider_provider.dart';
 import '../config/roles.dart';
 import '../components/navigation/profile_button.dart';
 import '../components/navigation/provider_dropdown.dart';
@@ -22,8 +21,8 @@ class MainLayout extends StatefulWidget {
 
 class _MainLayoutState extends State<MainLayout> {
   static const _tabs = [
-    _TabItem(icon: Icons.dashboard_rounded, label: 'Panel',    path: '/home'),
-    _TabItem(icon: Icons.group_rounded,     label: 'Clientes', path: '/clients'),
+    _TabItem(icon: Icons.dashboard_rounded, label: 'Panel', path: '/home'),
+    _TabItem(icon: Icons.group_rounded, label: 'Clientes', path: '/clients'),
   ];
 
   late PageController _pageController;
@@ -74,7 +73,7 @@ class _MainLayoutState extends State<MainLayout> {
 
     return PopScope(
       canPop: false,
-      onPopInvoked: (didPop) {
+      onPopInvokedWithResult: (didPop, _) {
         if (didPop) return;
         if (GoRouter.of(context).canPop()) {
           GoRouter.of(context).pop();
@@ -109,10 +108,7 @@ class _MainLayoutState extends State<MainLayout> {
         body: PageView(
           controller: _pageController,
           onPageChanged: _onPageChanged,
-          children: const [
-            DashboardScreen(),
-            ClientsScreen(),
-          ],
+          children: const [DashboardScreen(), ClientsScreen()],
         ),
 
         // ── NavigationBar ───────────────────────────────────────────────
@@ -136,9 +132,5 @@ class _TabItem {
   final String label;
   final String path;
 
-  const _TabItem({
-    required this.icon,
-    required this.label,
-    required this.path,
-  });
+  const _TabItem({required this.icon, required this.label, required this.path});
 }

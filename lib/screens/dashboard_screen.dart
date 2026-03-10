@@ -1,12 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../config/roles.dart';
 import '../components/dashboard/client_status_card.dart';
 import '../components/dashboard/latest_payments_card.dart';
 import '../components/dashboard/monthly_closing_card.dart';
-import '../components/navigation/provider_dropdown.dart';
-import '../providers/auth_provider.dart';
 import '../providers/provider_provider.dart';
 
 class DashboardScreen extends StatelessWidget {
@@ -15,10 +12,9 @@ class DashboardScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final currentProviderId = context.watch<ProviderProvider>().selectedProviderId;
-    final isSuperAdmin =
-        context.watch<AuthProvider>().user?.role == Roles.superadmin;
-
+    final currentProviderId = context
+        .watch<ProviderProvider>()
+        .selectedProviderId;
     return SingleChildScrollView(
       physics: const BouncingScrollPhysics(),
       padding: const EdgeInsets.all(16),

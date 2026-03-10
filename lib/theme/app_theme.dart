@@ -1,5 +1,7 @@
 // lib/theme/app_theme.dart
 import 'package:flutter/material.dart';
+// ignore: unnecessary_import
+import 'package:flutter/services.dart';
 
 /// Colores semánticos que no existen en ColorScheme (success).
 /// Uso: `Theme.of(context).extension<AppColors>()!.success`
@@ -44,14 +46,21 @@ class AppTheme {
         onSurfaceVariant: Color(0xFF6B7280),
       ),
 
-      extensions: const [
-        AppColors(success: Color(0xFF357C28)),
-      ],
+      // Status bar con íconos oscuros sobre fondo claro
+      appBarTheme: const AppBarTheme(
+        systemOverlayStyle: SystemUiOverlayStyle(
+          statusBarColor: Colors.transparent,
+          statusBarIconBrightness: Brightness.dark, // Íconos oscuros
+          statusBarBrightness: Brightness.light, // iOS
+        ),
+      ),
+
+      extensions: const [AppColors(success: Color(0xFF357C28))],
 
       // Refinamos los Inputs para un look más moderno
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: Colors.black.withOpacity(0.04), // Fondo muy tenue
+        fillColor: Colors.black.withValues(alpha: 0.04), // Fondo muy tenue
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 16,
           vertical: 16,
@@ -100,13 +109,20 @@ class AppTheme {
         onSurfaceVariant: Color(0xFF9CA3AF),
       ),
 
-      extensions: const [
-        AppColors(success: Color(0xFF10B981)),
-      ],
+      // Status bar con íconos claros sobre fondo oscuro
+      appBarTheme: const AppBarTheme(
+        systemOverlayStyle: SystemUiOverlayStyle(
+          statusBarColor: Colors.transparent,
+          statusBarIconBrightness: Brightness.light, // Íconos claros
+          statusBarBrightness: Brightness.dark, // iOS
+        ),
+      ),
+
+      extensions: const [AppColors(success: Color(0xFF10B981))],
 
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: Colors.white.withOpacity(0.05),
+        fillColor: Colors.white.withValues(alpha: 0.05),
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 16,
           vertical: 16,

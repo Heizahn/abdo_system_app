@@ -9,7 +9,6 @@ import '../models/client_model.dart';
 import '../providers/client_provider.dart';
 import '../components/clients/client_card.dart';
 import '../components/clients/client_card_skeleton.dart';
-import '../components/navigation/provider_dropdown.dart';
 import '../providers/provider_provider.dart';
 import '../providers/auth_provider.dart';
 import '../config/roles.dart';
@@ -141,14 +140,18 @@ class _ClientsScreenState extends State<ClientsScreen> {
 
     return {
       null: searched.length,
-      ClientStatus.solvente:
-          searched.where((c) => c.status == ClientStatus.solvente).length,
-      ClientStatus.moroso:
-          searched.where((c) => c.status == ClientStatus.moroso).length,
-      ClientStatus.suspendido:
-          searched.where((c) => c.status == ClientStatus.suspendido).length,
-      ClientStatus.retirado:
-          searched.where((c) => c.status == ClientStatus.retirado).length,
+      ClientStatus.solvente: searched
+          .where((c) => c.status == ClientStatus.solvente)
+          .length,
+      ClientStatus.moroso: searched
+          .where((c) => c.status == ClientStatus.moroso)
+          .length,
+      ClientStatus.suspendido: searched
+          .where((c) => c.status == ClientStatus.suspendido)
+          .length,
+      ClientStatus.retirado: searched
+          .where((c) => c.status == ClientStatus.retirado)
+          .length,
     };
   }
 
@@ -156,74 +159,70 @@ class _ClientsScreenState extends State<ClientsScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final clientProvider = context.watch<ClientProvider>();
-    final isSuperAdmin =
-        context.watch<AuthProvider>().user?.role == Roles.superadmin;
     final filtered = _applyFilters(clientProvider.clients);
 
     return Column(
-        children: [
-          // ─── BARRA DE BÚSQUEDA ───────────────────────────────────────────
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-            child: TextField(
-              controller: _searchController,
-              onChanged: _onSearchChanged,
-              decoration: InputDecoration(
-                hintText: 'Buscar por nombre, cédula, teléfono...',
-                prefixIcon: Icon(
-                  Icons.search_rounded,
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
-                suffixIcon: _searchQuery.isNotEmpty
-                    ? IconButton(
-                        icon: const Icon(Icons.close_rounded),
-                        onPressed: () {
-                          _searchController.clear();
-                          _onSearchChanged('');
-                        },
-                      )
-                    : null,
+      children: [
+        // ─── BARRA DE BÚSQUEDA ───────────────────────────────────────────
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+          child: TextField(
+            controller: _searchController,
+            onChanged: _onSearchChanged,
+            decoration: InputDecoration(
+              hintText: 'Buscar por nombre, cédula, teléfono...',
+              prefixIcon: Icon(
+                Icons.search_rounded,
+                color: theme.colorScheme.onSurfaceVariant,
               ),
+              suffixIcon: _searchQuery.isNotEmpty
+                  ? IconButton(
+                      icon: const Icon(Icons.close_rounded),
+                      onPressed: () {
+                        _searchController.clear();
+                        _onSearchChanged('');
+                      },
+                    )
+                  : null,
             ),
           ),
+        ),
 
-          // ─── CHIPS DE FILTRO ─────────────────────────────────────────────
-          _FilterBar(
-            activeStatus: _activeStatus,
-            counts: _countsByStatus(clientProvider.clients),
-            onChanged: _onStatusChanged,
-          ),
+        // ─── CHIPS DE FILTRO ─────────────────────────────────────────────
+        _FilterBar(
+          activeStatus: _activeStatus,
+          counts: _countsByStatus(clientProvider.clients),
+          onChanged: _onStatusChanged,
+        ),
 
-          // ─── CONTADOR DE RESULTADOS ──────────────────────────────────────
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 6, 8, 6),
-            child: Row(
-              children: [
-                Text(
-                  '${filtered.length} cliente${filtered.length == 1 ? '' : 's'}',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                    fontWeight: FontWeight.w600,
-                  ),
+        // ─── CONTADOR DE RESULTADOS ──────────────────────────────────────
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 6, 8, 6),
+          child: Row(
+            children: [
+              Text(
+                '${filtered.length} cliente${filtered.length == 1 ? '' : 's'}',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                  fontWeight: FontWeight.w600,
                 ),
-                const Spacer(),
-                IconButton(
-                  icon: const Icon(Icons.refresh_rounded),
-                  iconSize: 20,
-                  tooltip: 'Actualizar',
-                  onPressed: clientProvider.state == ClientsState.loading
-                      ? null
-                      : _fetchWithCurrentOwner,
-                ),
-              ],
-            ),
+              ),
+              const Spacer(),
+              IconButton(
+                icon: const Icon(Icons.refresh_rounded),
+                iconSize: 20,
+                tooltip: 'Actualizar',
+                onPressed: clientProvider.state == ClientsState.loading
+                    ? null
+                    : _fetchWithCurrentOwner,
+              ),
+            ],
           ),
+        ),
 
-          // ─── CONTENIDO ───────────────────────────────────────────────────
-          Expanded(
-            child: _buildBody(context, clientProvider, filtered),
-          ),
-        ],
+        // ─── CONTENIDO ───────────────────────────────────────────────────
+        Expanded(child: _buildBody(context, clientProvider, filtered)),
+      ],
     );
   }
 }

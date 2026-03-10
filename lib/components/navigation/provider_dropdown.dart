@@ -61,7 +61,7 @@ class _ProviderDropdownState extends State<ProviderDropdown> {
       decoration: BoxDecoration(
         color: theme.colorScheme.surface,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: theme.dividerColor.withOpacity(0.1)),
+        border: Border.all(color: theme.dividerColor.withValues(alpha: 0.1)),
       ),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<String>(
@@ -118,7 +118,7 @@ class _ProviderDropdownState extends State<ProviderDropdown> {
       decoration: BoxDecoration(
         color: theme.colorScheme.surface,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: theme.dividerColor.withOpacity(0.1)),
+        border: Border.all(color: theme.dividerColor.withValues(alpha: 0.1)),
       ),
       child: Center(
         child: SizedBox(
@@ -169,8 +169,8 @@ class _ProviderDropdownState extends State<ProviderDropdown> {
             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
             decoration: BoxDecoration(
               color: isAllOption
-                  ? theme.colorScheme.onSurfaceVariant.withOpacity(0.1)
-                  : theme.colorScheme.primary.withOpacity(0.1),
+                  ? theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.1)
+                  : theme.colorScheme.primary.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(4),
             ),
             child: Text(

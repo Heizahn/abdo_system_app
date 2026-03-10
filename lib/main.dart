@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import 'package:abdo_system_app/config/env_config.dart';
@@ -34,14 +35,34 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     final themeProvider = context.watch<ThemeProvider>();
 
+    // Determinar el brillo real (respetando tema del sistema si es auto)
+    final brightness =
+        themeProvider.themeMode == ThemeMode.dark ||
+            (themeProvider.themeMode == ThemeMode.system &&
+                MediaQuery.platformBrightnessOf(context) == Brightness.dark)
+        ? Brightness.dark
+        : Brightness.light;
+
+    // Aplicar el estilo del status bar globalmente para que cubra
+    // todas las pantallas, incluso las que no tienen AppBar (ej. login)
+    SystemChrome.setSystemUIOverlayStyle(
+      SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        // Íconos oscuros en tema claro, claros en tema oscuro
+        statusBarIconBrightness: brightness == Brightness.light
+            ? Brightness.dark
+            : Brightness.light,
+        // iOS: el valor es inverso (describe el fondo, no los íconos)
+        statusBarBrightness: brightness,
+      ),
+    );
+
     return MaterialApp.router(
       title: 'SISTEMA ABDO77',
       debugShowCheckedModeBanner: false,
-      // Aquí conectamos tus temas
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
-      themeMode: themeProvider.themeMode, // Cambia automático según el celular
-
+      themeMode: themeProvider.themeMode,
       routerConfig: AppRouter.router,
     );
   }
