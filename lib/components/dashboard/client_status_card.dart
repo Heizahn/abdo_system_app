@@ -79,7 +79,10 @@ class _Content extends StatelessWidget {
       icon: Icons.people_alt_rounded,
       iconColor: theme.colorScheme.primary,
       trailing: IconButton(
-        onPressed: () => queryCache.invalidateQueries('dashboard:solvency'),
+        onPressed: () => queryCache.invalidateQueries(
+          'dashboard:solvency',
+          showLoading: true,
+        ),
         icon: Icon(
           Icons.refresh_rounded,
           size: 18,

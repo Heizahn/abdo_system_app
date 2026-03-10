@@ -123,7 +123,8 @@ class _QueryBuilderState<T> extends State<QueryBuilder<T>> {
   }
 
   Future<void> _fetchIfNeeded() async {
-    if (queryCache.isFresh(widget.queryKey, widget.staleTime)) {
+    if (queryCache.isFresh(widget.queryKey, widget.staleTime) &&
+        !queryCache.shouldForceLoading(widget.queryKey)) {
       if (mounted) setState(() => _isFirstLoad = false);
       return;
     }
@@ -133,6 +134,7 @@ class _QueryBuilderState<T> extends State<QueryBuilder<T>> {
   Future<void> _doFetch() async {
     if (_isFetching) return;
     _isFetching = true;
+    if (mounted) setState(() {});
 
     try {
       await queryCache.fetch<T>(
@@ -156,13 +158,20 @@ class _QueryBuilderState<T> extends State<QueryBuilder<T>> {
       }
     } finally {
       _isFetching = false;
+      queryCache.clearForceLoading(widget.queryKey);
+      if (mounted) setState(() {});
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final cachedData = queryCache.getData<T>(widget.queryKey);
-    final isRefreshing = queryCache.isFetching(widget.queryKey) || _isFetching;
+    final forceLoading = queryCache.shouldForceLoading(widget.queryKey);
+
+    // Invalidación manual con showLoading: mostrar loader
+    if (forceLoading) {
+      return widget.loading;
+    }
 
     // Primera carga sin datos: mostrar loader
     if (cachedData == null && _isFirstLoad && _error == null) {
@@ -179,10 +188,7 @@ class _QueryBuilderState<T> extends State<QueryBuilder<T>> {
 
     // Hay datos (frescos o stale): mostrarlos
     if (cachedData != null) {
-      if (widget.showLoadingOnRefresh && isRefreshing && _isFirstLoad) {
-        return widget.loading;
-      }
-      return widget.builder(context, cachedData, isRefreshing);
+      return widget.builder(context, cachedData, _isFetching);
     }
 
     return widget.loading;

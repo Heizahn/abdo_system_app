@@ -23,12 +23,15 @@ class ClientProvider extends ChangeNotifier {
     return 'clients:$owner';
   }
 
-  Future<void> fetchClients({String? owner}) async {
+  /// Si [showLoading] es true, muestra el skeleton aunque haya datos
+  /// en cache (útil para el botón de refresh manual).
+  Future<void> fetchClients({String? owner, bool showLoading = false}) async {
     final key = queryKey(owner: owner);
 
     // Verificar si hay datos en cache frescos
     final cached = queryCache.getData<List<Client>>(key);
-    if (cached != null &&
+    if (!showLoading &&
+        cached != null &&
         queryCache.isFresh(key, const Duration(seconds: 30))) {
       // Datos frescos en cache: actualizar sin mostrar loader
       _clients = cached;
@@ -39,14 +42,15 @@ class ClientProvider extends ChangeNotifier {
       return;
     }
 
-    // Si hay datos cacheados (stale), mostrarlos mientras refetchamos
-    if (cached != null) {
-      _clients = cached;
-      _state = ClientsState.loaded;
-      notifyListeners();
-    } else {
+    // Si el usuario pidió ver el loader, o no hay datos previos
+    if (showLoading || cached == null) {
       _state = ClientsState.loading;
       _error = null;
+      notifyListeners();
+    } else {
+      // Hay datos stale: mostrarlos mientras refetchamos
+      _clients = cached;
+      _state = ClientsState.loaded;
       notifyListeners();
     }
 

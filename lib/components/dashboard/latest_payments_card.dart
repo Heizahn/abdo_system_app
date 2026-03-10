@@ -87,8 +87,10 @@ class _Content extends StatelessWidget {
       icon: Icons.receipt_long_rounded,
       iconColor: theme.colorScheme.primary,
       trailing: IconButton(
-        onPressed: () =>
-            queryCache.invalidateQueries('dashboard:latest-payments'),
+        onPressed: () => queryCache.invalidateQueries(
+          'dashboard:latest-payments',
+          showLoading: true,
+        ),
         icon: Icon(
           Icons.refresh_rounded,
           size: 18,

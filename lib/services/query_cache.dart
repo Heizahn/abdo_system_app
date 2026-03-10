@@ -54,6 +54,10 @@ class QueryCache {
   final Map<String, List<VoidCallback>> _listeners = {};
   final Map<String, Timer> _refetchTimers = {};
 
+  /// Keys que fueron invalidadas con [showLoading] = true.
+  /// El QueryBuilder consulta esto para decidir si mostrar el skeleton.
+  final Set<String> _forceLoadingKeys = {};
+
   /// Registra un listener que será notificado cuando la query cambie.
   void addListener(String queryKey, VoidCallback listener) {
     _listeners.putIfAbsent(queryKey, () => []);
@@ -87,6 +91,13 @@ class QueryCache {
   bool isFetching(String queryKey) {
     return _cache[queryKey]?.isFetching ?? false;
   }
+
+  /// Retorna true si la query fue invalidada con showLoading = true.
+  bool shouldForceLoading(String queryKey) =>
+      _forceLoadingKeys.contains(queryKey);
+
+  /// Limpia el flag de force loading para una query.
+  void clearForceLoading(String queryKey) => _forceLoadingKeys.remove(queryKey);
 
   /// Retorna true si los datos son frescos (menos de [staleTime] de antigüedad).
   bool isFresh(String queryKey, Duration staleTime) {
@@ -138,9 +149,10 @@ class QueryCache {
   /// Ejemplo: `invalidateQueries('clients')` invalida 'clients:all',
   /// 'clients:123', etc.
   ///
-  /// Si [refetch] es true (por defecto), re-ejecuta inmediatamente las
-  /// queries que tengan un fetcher registrado.
-  void invalidateQueries(String keyPrefix, {bool refetch = false}) {
+  /// Si [showLoading] es true, los QueryBuilder asociados mostrarán el
+  /// skeleton/loader durante el re-fetch (útil para acciones manuales
+  /// del usuario como presionar un botón de refresh).
+  void invalidateQueries(String keyPrefix, {bool showLoading = false}) {
     final keysToInvalidate = _cache.keys
         .where((k) => k == keyPrefix || k.startsWith('$keyPrefix:'))
         .toList();
@@ -148,6 +160,7 @@ class QueryCache {
     for (final key in keysToInvalidate) {
       // Marcamos como stale poniendo fetchedAt en el pasado
       _cache[key]!.fetchedAt = DateTime.fromMillisecondsSinceEpoch(0);
+      if (showLoading) _forceLoadingKeys.add(key);
     }
 
     // Notificar a los listeners para que los QueryBuilder re-fetchen
@@ -208,6 +221,7 @@ class QueryCache {
     _refetchTimers.clear();
     _cache.clear();
     _listeners.clear();
+    _forceLoadingKeys.clear();
   }
 }
 

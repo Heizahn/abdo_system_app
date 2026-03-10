@@ -57,13 +57,16 @@ class _ClientsScreenState extends State<ClientsScreen> {
     if (mounted) _fetchWithCurrentOwner();
   }
 
-  void _fetchWithCurrentOwner() {
+  void _fetchWithCurrentOwner({bool showLoading = false}) {
     final isSuperAdmin =
         context.read<AuthProvider>().user?.role == Roles.superadmin;
     final ownerId = isSuperAdmin
         ? context.read<ProviderProvider>().selectedProviderId
         : null;
-    context.read<ClientProvider>().fetchClients(owner: ownerId);
+    context.read<ClientProvider>().fetchClients(
+      owner: ownerId,
+      showLoading: showLoading,
+    );
   }
 
   void _onSearchChanged(String value) {
@@ -214,7 +217,7 @@ class _ClientsScreenState extends State<ClientsScreen> {
                 tooltip: 'Actualizar',
                 onPressed: clientProvider.state == ClientsState.loading
                     ? null
-                    : _fetchWithCurrentOwner,
+                    : () => _fetchWithCurrentOwner(showLoading: true),
               ),
             ],
           ),
