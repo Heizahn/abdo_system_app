@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../services/api_client.dart';
 import '../services/auth_service.dart';
+import '../services/query_cache.dart';
 
 // El equivalente a tu interfaz User en React
 class UserModel {
@@ -106,9 +107,10 @@ class AuthProvider extends ChangeNotifier {
     _refreshTimer = null;
   }
 
-  /// Limpia el estado local y cierra sesión
+  /// Limpia el estado local, el cache de queries y cierra sesión
   Future<void> logout() async {
     _cancelRefreshTimer();
+    queryCache.clear();
     await AuthService.logout();
     _user = null;
     notifyListeners();

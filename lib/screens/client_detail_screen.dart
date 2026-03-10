@@ -4,60 +4,33 @@ import 'package:go_router/go_router.dart';
 
 import '../models/client_detail_model.dart';
 import '../services/api_client.dart';
+import '../components/query_builder.dart';
 import '../components/client_detail/client_detail_header.dart';
 import '../components/client_detail/cards/personal_info_card.dart';
 import '../components/client_detail/cards/plan_info_card.dart';
 import '../components/client_detail/cards/status_info_card.dart';
 import '../components/client_detail/cards/devices_info_card.dart';
 
-class ClientDetailScreen extends StatefulWidget {
+class ClientDetailScreen extends StatelessWidget {
   final String clientId;
 
   const ClientDetailScreen({super.key, required this.clientId});
 
   @override
-  State<ClientDetailScreen> createState() => _ClientDetailScreenState();
-}
-
-class _ClientDetailScreenState extends State<ClientDetailScreen> {
-  ClientDetail? _client;
-  bool _loading = true;
-  String? _error;
-
-  @override
-  void initState() {
-    super.initState();
-    _fetch();
-  }
-
-  Future<void> _fetch() async {
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
-    try {
-      final response =
-          await apiClient.get('/auth-user/clients/${widget.clientId}');
-      setState(() {
-        _client = ClientDetail.fromJson(
-            response.data as Map<String, dynamic>);
-        _loading = false;
-      });
-    } catch (e) {
-      setState(() {
-        _error = e.toString();
-        _loading = false;
-      });
-    }
-  }
-
-  @override
   Widget build(BuildContext context) {
-    if (_loading) return _LoadingScreen(clientId: widget.clientId);
-    if (_error != null) {
-      return _ErrorScreen(onRetry: _fetch, onBack: () => context.pop());
-    }
-    return _ClientDetailView(client: _client!);
+    return QueryBuilder<ClientDetail>(
+      queryKey: 'client:$clientId',
+      queryFn: () async {
+        final response = await apiClient.get('/auth-user/clients/$clientId');
+        return ClientDetail.fromJson(response.data as Map<String, dynamic>);
+      },
+      staleTime: const Duration(minutes: 2),
+      loading: _LoadingScreen(clientId: clientId),
+      onError: (error, retry) =>
+          _ErrorScreen(onRetry: retry, onBack: () => context.pop()),
+      builder: (context, client, isRefreshing) =>
+          _ClientDetailView(client: client),
+    );
   }
 }
 
@@ -95,21 +68,20 @@ class _ClientDetailView extends StatelessWidget {
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(1),
           child: Divider(
-              height: 1,
-              color: theme.dividerColor.withValues(alpha: 0.5)),
+            height: 1,
+            color: theme.dividerColor.withValues(alpha: 0.5),
+          ),
         ),
       ),
       body: CustomScrollView(
         slivers: [
-          // ── Header ──────────────────────────────────────────────────
           SliverToBoxAdapter(child: ClientDetailHeader(client: client)),
           SliverToBoxAdapter(
             child: Divider(
-                height: 1,
-                color: theme.dividerColor.withValues(alpha: 0.5)),
+              height: 1,
+              color: theme.dividerColor.withValues(alpha: 0.5),
+            ),
           ),
-
-          // ── Cards de detalle ─────────────────────────────────────────
           SliverPadding(
             padding: const EdgeInsets.fromLTRB(16, 20, 16, 40),
             sliver: SliverList(
@@ -179,8 +151,10 @@ class _LoadingScreen extends StatelessWidget {
           icon: const Icon(Icons.arrow_back_ios_new_rounded),
           onPressed: () => context.pop(),
         ),
-        title: const Text('Ficha del Cliente',
-            style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
+        title: const Text(
+          'Ficha del Cliente',
+          style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18),
+        ),
       ),
       body: const Center(child: CircularProgressIndicator()),
     );
@@ -207,8 +181,10 @@ class _ErrorScreen extends StatelessWidget {
           icon: const Icon(Icons.arrow_back_ios_new_rounded),
           onPressed: onBack,
         ),
-        title: const Text('Ficha del Cliente',
-            style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
+        title: const Text(
+          'Ficha del Cliente',
+          style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18),
+        ),
       ),
       body: Center(
         child: Padding(
@@ -216,14 +192,18 @@ class _ErrorScreen extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.cloud_off_rounded,
-                  size: 64,
-                  color:
-                      theme.colorScheme.error.withValues(alpha: 0.6)),
+              Icon(
+                Icons.cloud_off_rounded,
+                size: 64,
+                color: theme.colorScheme.error.withValues(alpha: 0.6),
+              ),
               const SizedBox(height: 16),
-              Text('Error al cargar el cliente',
-                  style: theme.textTheme.titleMedium
-                      ?.copyWith(fontWeight: FontWeight.w700)),
+              Text(
+                'Error al cargar el cliente',
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
               const SizedBox(height: 16),
               Row(
                 mainAxisSize: MainAxisSize.min,

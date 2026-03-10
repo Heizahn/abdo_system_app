@@ -4,7 +4,27 @@ import 'package:provider/provider.dart';
 
 import '../../providers/provider_provider.dart';
 import '../../services/api_client.dart';
+import '../../services/query_cache.dart';
 import 'kpi_card.dart';
+
+/// Datos parseados del endpoint de cierre mensual.
+class _ClosingData {
+  final List<String> months;
+  final String selectedMonth;
+  final double collected;
+  final double pending;
+  final double? efficiency;
+  final bool noData;
+
+  const _ClosingData({
+    required this.months,
+    required this.selectedMonth,
+    required this.collected,
+    required this.pending,
+    required this.efficiency,
+    this.noData = false,
+  });
+}
 
 class MonthlyClosingCard extends StatefulWidget {
   const MonthlyClosingCard({super.key});
@@ -13,55 +33,21 @@ class MonthlyClosingCard extends StatefulWidget {
   State<MonthlyClosingCard> createState() => _MonthlyClosingCardState();
 }
 
-class _MonthlyClosingCardState extends State<MonthlyClosingCard>
-    with SingleTickerProviderStateMixin {
-  bool _isLoading = false;
-  bool _noData = false;
-  String? _lastProviderId;
-
-  List<String> _months = [];
+class _MonthlyClosingCardState extends State<MonthlyClosingCard> {
   String? _selectedMonth;
-  double _collected = 0;
-  double _pending = 0;
-  double? _efficiency;
+  List<String> _cachedMonths = [];
 
-  late AnimationController _shimmerController;
-  late Animation<double> _shimmerAnim;
-
-  @override
-  void initState() {
-    super.initState();
-    _shimmerController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 900),
-    )..repeat(reverse: true);
-    _shimmerAnim = Tween<double>(begin: 0.3, end: 0.7).animate(
-      CurvedAnimation(parent: _shimmerController, curve: Curves.easeInOut),
-    );
-
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final id = context.read<ProviderProvider>().selectedProviderId;
-      _fetch(id);
-    });
+  String _queryKey(String providerId, {String? month}) {
+    final base = 'dashboard:monthly-closing:$providerId';
+    return month != null ? '$base:$month' : base;
   }
 
-  @override
-  void dispose() {
-    _shimmerController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _fetch(String providerId, {String? month}) async {
-    setState(() {
-      _isLoading = true;
-      _lastProviderId = providerId;
-    });
+  Future<_ClosingData> _fetchClosing(String providerId, {String? month}) async {
+    final params = <String, dynamic>{};
+    if (month != null) params['month'] = month;
+    if (providerId != 'all') params['owner'] = providerId;
 
     try {
-      final params = <String, dynamic>{};
-      if (month != null) params['month'] = month;
-      if (providerId != 'all') params['owner'] = providerId;
-
       final response = await apiClient.get(
         '/auth-user/dashboard/monthly-closing',
         queryParameters: params.isNotEmpty ? params : null,
@@ -70,87 +56,120 @@ class _MonthlyClosingCardState extends State<MonthlyClosingCard>
       final body = response.data as Map<String, dynamic>;
       final data = body['data'] as Map<String, dynamic>;
 
-      if (mounted) {
-        setState(() {
-          _noData = false;
-          _months = List<String>.from(body['months'] as List);
-          _selectedMonth = body['selected_month'] as String;
-          _collected = (data['collected'] as num).toDouble();
-          _pending = (data['pending'] as num).toDouble();
-          _efficiency =
-              data['efficiency'] != null
-                  ? (data['efficiency'] as num).toDouble()
-                  : null;
-        });
-      }
+      return _ClosingData(
+        months: List<String>.from(body['months'] as List),
+        selectedMonth: body['selected_month'] as String,
+        collected: (data['collected'] as num).toDouble(),
+        pending: (data['pending'] as num).toDouble(),
+        efficiency: data['efficiency'] != null
+            ? (data['efficiency'] as num).toDouble()
+            : null,
+      );
     } on DioException catch (e) {
-      if (e.response?.statusCode == 404 && mounted) {
-        setState(() {
-          _noData = true;
-          // Preserve _months from prior fetch; just update selected month
-          if (month != null) _selectedMonth = month;
-        });
-      } else {
-        debugPrint('Error cargando cierre mensual: $e');
+      if (e.response?.statusCode == 404) {
+        return _ClosingData(
+          months: _cachedMonths,
+          selectedMonth: month ?? '',
+          collected: 0,
+          pending: 0,
+          efficiency: null,
+          noData: true,
+        );
       }
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
+      rethrow;
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final providerId = context.watch<ProviderProvider>().selectedProviderId;
+    final key = _queryKey(providerId, month: _selectedMonth);
 
-    if (providerId != _lastProviderId && !_isLoading) {
-      Future.microtask(() => _fetch(providerId));
+    final cachedData = queryCache.getData<_ClosingData>(key);
+    final isFresh = queryCache.isFresh(key, const Duration(seconds: 30));
+
+    // Si hay datos en cache, mostrarlos directamente
+    if (cachedData != null) {
+      // Actualizar lista de meses cacheada
+      if (cachedData.months.isNotEmpty) {
+        _cachedMonths = cachedData.months;
+      }
+
+      // Re-fetch en background si los datos están stale
+      if (!isFresh) {
+        _refetchInBackground(providerId);
+      }
+
+      return cachedData.noData
+          ? _buildNoData(context, cachedData)
+          : _buildContent(context, cachedData, providerId);
     }
 
-    if (_isLoading) return _buildSkeleton(context);
+    // Primera carga: fetch y mostrar skeleton
+    _refetchInBackground(providerId);
+    return const _Skeleton();
+  }
 
+  void _refetchInBackground(String providerId) {
+    final key = _queryKey(providerId, month: _selectedMonth);
+    if (queryCache.isFetching(key)) return;
+
+    queryCache
+        .fetch<_ClosingData>(
+          queryKey: key,
+          queryFn: () => _fetchClosing(providerId, month: _selectedMonth),
+          forceRefresh: true,
+        )
+        .then((data) {
+          if (mounted && data.months.isNotEmpty) {
+            setState(() => _cachedMonths = data.months);
+          }
+        })
+        .catchError((e) {
+          debugPrint('Error cargando cierre mensual: $e');
+        });
+  }
+
+  void _onMonthSelected(String month, String providerId) {
+    setState(() => _selectedMonth = month);
+    final key = _queryKey(providerId, month: month);
+    queryCache
+        .fetch<_ClosingData>(
+          queryKey: key,
+          queryFn: () => _fetchClosing(providerId, month: month),
+          forceRefresh: true,
+        )
+        .then((_) {
+          if (mounted) setState(() {});
+        })
+        .catchError((e) {
+          debugPrint('Error cargando cierre mensual: $e');
+        });
+  }
+
+  // ─── Builders ──────────────────────────────────────────────────────────
+
+  Widget _buildContent(
+    BuildContext context,
+    _ClosingData data,
+    String providerId,
+  ) {
     final theme = Theme.of(context);
     final colorUsd = theme.colorScheme.primary;
     final colorVes = theme.colorScheme.secondary;
-    final trailing = _months.isNotEmpty ? _buildMonthDropdown(theme) : null;
+    final trailing = data.months.isNotEmpty
+        ? _buildMonthDropdown(theme, providerId)
+        : null;
 
-    if (_noData) {
-      return KpiCard(
-        title: 'Cierre Mensual',
-        icon: Icons.account_balance_wallet_rounded,
-        iconColor: Colors.tealAccent.shade400,
-        trailing: trailing,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 24),
-          child: Center(
-            child: Column(
-              children: [
-                Icon(
-                  Icons.inbox_rounded,
-                  size: 40,
-                  color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  'Sin datos para este mes',
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      );
-    }
-
-    final total = _collected + _pending;
-    final collectedFlex =
-        total > 0 ? (_collected / total * 100).round().clamp(1, 99) : 100;
+    final total = data.collected + data.pending;
+    final collectedFlex = total > 0
+        ? (data.collected / total * 100).round().clamp(1, 99)
+        : 100;
     final pendingFlex = total > 0 ? 100 - collectedFlex : 0;
 
-    // efficiency ya es un porcentaje (ej. 0.05 = 0.05%), null = 100%
-    final efficiencyLabel =
-        _efficiency == null ? '100' : _efficiency!.toStringAsFixed(2);
+    final efficiencyLabel = data.efficiency == null
+        ? '100'
+        : data.efficiency!.toStringAsFixed(2);
 
     return KpiCard(
       title: 'Cierre Mensual',
@@ -174,7 +193,7 @@ class _MonthlyClosingCardState extends State<MonthlyClosingCard>
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               Text(
-                '\$${_collected.toStringAsFixed(2)}',
+                '\$${data.collected.toStringAsFixed(2)}',
                 style: theme.textTheme.displaySmall?.copyWith(
                   fontWeight: FontWeight.w900,
                 ),
@@ -205,7 +224,10 @@ class _MonthlyClosingCardState extends State<MonthlyClosingCard>
               Text('Eficiencia de Cobro', style: theme.textTheme.bodySmall),
               Text(
                 '\$${total.toStringAsFixed(2)} Total',
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 12,
+                ),
               ),
             ],
           ),
@@ -230,8 +252,14 @@ class _MonthlyClosingCardState extends State<MonthlyClosingCard>
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              _buildLegend('Ingresado  \$${_collected.toStringAsFixed(2)}', colorUsd),
-              _buildLegend('Pendiente  \$${_pending.toStringAsFixed(2)}', colorVes),
+              _buildLegend(
+                'Ingresado  \$${data.collected.toStringAsFixed(2)}',
+                colorUsd,
+              ),
+              _buildLegend(
+                'Pendiente  \$${data.pending.toStringAsFixed(2)}',
+                colorVes,
+              ),
             ],
           ),
         ],
@@ -239,11 +267,49 @@ class _MonthlyClosingCardState extends State<MonthlyClosingCard>
     );
   }
 
-  Widget _buildMonthDropdown(ThemeData theme) {
+  Widget _buildNoData(BuildContext context, _ClosingData data) {
+    final theme = Theme.of(context);
+    final providerId = context.read<ProviderProvider>().selectedProviderId;
+    final trailing = _cachedMonths.isNotEmpty
+        ? _buildMonthDropdown(theme, providerId)
+        : null;
+
+    return KpiCard(
+      title: 'Cierre Mensual',
+      icon: Icons.account_balance_wallet_rounded,
+      iconColor: Colors.tealAccent.shade400,
+      trailing: trailing,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 24),
+        child: Center(
+          child: Column(
+            children: [
+              Icon(
+                Icons.inbox_rounded,
+                size: 40,
+                color: theme.colorScheme.onSurfaceVariant.withValues(
+                  alpha: 0.4,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Sin datos para este mes',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMonthDropdown(ThemeData theme, String providerId) {
     return Builder(
       builder: (ctx) => InkWell(
         borderRadius: BorderRadius.circular(6),
-        onTap: () => _openMonthMenu(ctx, theme),
+        onTap: () => _openMonthMenu(ctx, theme, providerId),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
           child: Row(
@@ -264,8 +330,11 @@ class _MonthlyClosingCardState extends State<MonthlyClosingCard>
     );
   }
 
-  Future<void> _openMonthMenu(BuildContext ctx, ThemeData theme) async {
-    final providerId = context.read<ProviderProvider>().selectedProviderId;
+  Future<void> _openMonthMenu(
+    BuildContext ctx,
+    ThemeData theme,
+    String providerId,
+  ) async {
     final box = ctx.findRenderObject()! as RenderBox;
     final overlay =
         Navigator.of(ctx).overlay!.context.findRenderObject()! as RenderBox;
@@ -280,10 +349,8 @@ class _MonthlyClosingCardState extends State<MonthlyClosingCard>
     final spaceBelow = screenH - btnRect.bottom;
     final spaceAbove = btnRect.top;
 
-    // Prefer downward; open upward only when more space is above
     final RelativeRect position;
     if (spaceAbove > spaceBelow) {
-      // Anchor at top of button → menu expands upward
       position = RelativeRect.fromLTRB(
         btnRect.left,
         0,
@@ -291,7 +358,6 @@ class _MonthlyClosingCardState extends State<MonthlyClosingCard>
         screenH - btnRect.top,
       );
     } else {
-      // Anchor at bottom of button → menu expands downward
       position = RelativeRect.fromLTRB(
         btnRect.left,
         btnRect.bottom,
@@ -304,19 +370,17 @@ class _MonthlyClosingCardState extends State<MonthlyClosingCard>
       context: ctx,
       position: position,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      items: _months
+      items: _cachedMonths
           .map(
             (m) => PopupMenuItem<String>(
               value: m,
               child: Text(
                 m,
                 style: theme.textTheme.bodyMedium?.copyWith(
-                  fontWeight:
-                      m == _selectedMonth ? FontWeight.w700 : FontWeight.normal,
-                  color:
-                      m == _selectedMonth
-                          ? theme.colorScheme.primary
-                          : null,
+                  fontWeight: m == _selectedMonth
+                      ? FontWeight.w700
+                      : FontWeight.normal,
+                  color: m == _selectedMonth ? theme.colorScheme.primary : null,
                 ),
               ),
             ),
@@ -325,17 +389,72 @@ class _MonthlyClosingCardState extends State<MonthlyClosingCard>
     );
 
     if (selected != null && selected != _selectedMonth) {
-      _fetch(providerId, month: selected);
+      _onMonthSelected(selected, providerId);
     }
   }
 
-  Widget _buildSkeleton(BuildContext context) {
+  Widget _buildLegend(String label, Color color) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 10,
+          height: 10,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        ),
+        const SizedBox(width: 6),
+        Text(
+          label,
+          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+        ),
+      ],
+    );
+  }
+}
+
+// ─── Skeleton ───────────────────────────────────────────────────────────────
+
+class _Skeleton extends StatefulWidget {
+  const _Skeleton();
+
+  @override
+  State<_Skeleton> createState() => _SkeletonState();
+}
+
+class _SkeletonState extends State<_Skeleton>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _ctrl;
+  late Animation<double> _anim;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+    )..repeat(reverse: true);
+    _anim = Tween<double>(
+      begin: 0.3,
+      end: 0.7,
+    ).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut));
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
     return AnimatedBuilder(
-      animation: _shimmerAnim,
+      animation: _anim,
       builder: (context, _) {
-        final color = theme.colorScheme.onSurface.withValues(alpha: _shimmerAnim.value * 0.15);
+        final color = theme.colorScheme.onSurface.withValues(
+          alpha: _anim.value * 0.15,
+        );
 
         return KpiCard(
           title: 'Cierre Mensual',
@@ -380,21 +499,6 @@ class _MonthlyClosingCardState extends State<MonthlyClosingCard>
         color: color,
         borderRadius: BorderRadius.circular(6),
       ),
-    );
-  }
-
-  Widget _buildLegend(String label, Color color) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          width: 10,
-          height: 10,
-          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-        ),
-        const SizedBox(width: 6),
-        Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
-      ],
     );
   }
 }

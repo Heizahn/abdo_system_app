@@ -4,90 +4,71 @@ import 'package:provider/provider.dart';
 
 import '../../providers/provider_provider.dart';
 import '../../services/api_client.dart';
+import '../../services/query_cache.dart';
 import '../../theme/app_theme.dart';
+import '../query_builder.dart';
 import 'kpi_card.dart';
 
-class ClientStatusCard extends StatefulWidget {
-  const ClientStatusCard({super.key});
+/// Datos parseados del endpoint de solvencia.
+class _SolvencyData {
+  final int solventes;
+  final int morosos;
+  final int suspendidos;
 
-  @override
-  State<ClientStatusCard> createState() => _ClientStatusCardState();
+  const _SolvencyData({
+    required this.solventes,
+    required this.morosos,
+    required this.suspendidos,
+  });
 }
 
-class _ClientStatusCardState extends State<ClientStatusCard>
-    with SingleTickerProviderStateMixin {
-  bool _isLoading = false;
-  String? _lastProviderId;
+class ClientStatusCard extends StatelessWidget {
+  const ClientStatusCard({super.key});
 
-  int _solventes = 0;
-  int _morosos = 0;
-  int _suspendidos = 0;
+  static String _queryKey(String providerId) =>
+      'dashboard:solvency:$providerId';
 
-  late AnimationController _shimmerController;
-  late Animation<double> _shimmerAnim;
-
-  @override
-  void initState() {
-    super.initState();
-    _shimmerController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 900),
-    )..repeat(reverse: true);
-    _shimmerAnim = Tween<double>(begin: 0.3, end: 0.7).animate(
-      CurvedAnimation(parent: _shimmerController, curve: Curves.easeInOut),
+  static Future<_SolvencyData> _fetchSolvency(String providerId) async {
+    final response = await apiClient.get(
+      '/auth-user/dashboard/solvency',
+      queryParameters: providerId != 'all' ? {'owner': providerId} : null,
     );
-
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final id = context.read<ProviderProvider>().selectedProviderId;
-      _fetch(id);
-    });
-  }
-
-  @override
-  void dispose() {
-    _shimmerController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _fetch(String providerId) async {
-    setState(() {
-      _isLoading = true;
-      _lastProviderId = providerId;
-    });
-
-    try {
-      final response = await apiClient.get(
-        '/auth-user/dashboard/solvency',
-        queryParameters: providerId != 'all' ? {'owner': providerId} : null,
-      );
-      final body = response.data as Map<String, dynamic>;
-
-      if (mounted) {
-        setState(() {
-          _solventes = (body['solventes'] as num).toInt();
-          _morosos = (body['morosos'] as num).toInt();
-          _suspendidos = (body['suspendidos'] as num).toInt();
-        });
-      }
-    } catch (e) {
-      debugPrint('Error cargando estado de clientes: $e');
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
-    }
+    final body = response.data as Map<String, dynamic>;
+    return _SolvencyData(
+      solventes: (body['solventes'] as num).toInt(),
+      morosos: (body['morosos'] as num).toInt(),
+      suspendidos: (body['suspendidos'] as num).toInt(),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final providerId = context.watch<ProviderProvider>().selectedProviderId;
 
-    if (providerId != _lastProviderId && !_isLoading) {
-      Future.microtask(() => _fetch(providerId));
-    }
+    return QueryBuilder<_SolvencyData>(
+      queryKey: _queryKey(providerId),
+      queryFn: () => _fetchSolvency(providerId),
+      staleTime: const Duration(seconds: 30),
+      refetchInterval: const Duration(seconds: 10),
+      loading: const _Skeleton(),
+      builder: (context, data, isRefreshing) =>
+          _Content(data: data, providerId: providerId),
+    );
+  }
+}
 
-    if (_isLoading) return _buildSkeleton(context);
+// ─── Contenido con datos ────────────────────────────────────────────────────
 
+class _Content extends StatelessWidget {
+  final _SolvencyData data;
+  final String providerId;
+
+  const _Content({required this.data, required this.providerId});
+
+  @override
+  Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final total = _solventes + _morosos + _suspendidos;
+    final total = data.solventes + data.morosos + data.suspendidos;
 
     final colorSolventes = theme.extension<AppColors>()!.success;
     final colorMorosos = theme.colorScheme.outline;
@@ -98,7 +79,7 @@ class _ClientStatusCardState extends State<ClientStatusCard>
       icon: Icons.people_alt_rounded,
       iconColor: theme.colorScheme.primary,
       trailing: IconButton(
-        onPressed: () => _fetch(providerId),
+        onPressed: () => queryCache.invalidateQueries('dashboard:solvency'),
         icon: Icon(
           Icons.refresh_rounded,
           size: 18,
@@ -124,8 +105,9 @@ class _ClientStatusCardState extends State<ClientStatusCard>
                     sections: total == 0
                         ? [
                             PieChartSectionData(
-                              color: theme.colorScheme.onSurface
-                                  .withValues(alpha: 0.1),
+                              color: theme.colorScheme.onSurface.withValues(
+                                alpha: 0.1,
+                              ),
                               value: 1,
                               title: '',
                               radius: 24,
@@ -134,19 +116,19 @@ class _ClientStatusCardState extends State<ClientStatusCard>
                         : [
                             PieChartSectionData(
                               color: colorSolventes,
-                              value: _solventes.toDouble(),
+                              value: data.solventes.toDouble(),
                               title: '',
                               radius: 24,
                             ),
                             PieChartSectionData(
                               color: colorMorosos,
-                              value: _morosos.toDouble(),
+                              value: data.morosos.toDouble(),
                               title: '',
                               radius: 24,
                             ),
                             PieChartSectionData(
                               color: colorSuspendidos,
-                              value: _suspendidos.toDouble(),
+                              value: data.suspendidos.toDouble(),
                               title: '',
                               radius: 24,
                             ),
@@ -179,17 +161,17 @@ class _ClientStatusCardState extends State<ClientStatusCard>
             children: [
               _LegendItem(
                 label: 'Solventes',
-                count: _solventes,
+                count: data.solventes,
                 color: colorSolventes,
               ),
               _LegendItem(
                 label: 'Morosos',
-                count: _morosos,
+                count: data.morosos,
                 color: colorMorosos,
               ),
               _LegendItem(
                 label: 'Suspendidos',
-                count: _suspendidos,
+                count: data.suspendidos,
                 color: colorSuspendidos,
               ),
             ],
@@ -198,15 +180,51 @@ class _ClientStatusCardState extends State<ClientStatusCard>
       ),
     );
   }
+}
 
-  Widget _buildSkeleton(BuildContext context) {
+// ─── Skeleton ───────────────────────────────────────────────────────────────
+
+class _Skeleton extends StatefulWidget {
+  const _Skeleton();
+
+  @override
+  State<_Skeleton> createState() => _SkeletonState();
+}
+
+class _SkeletonState extends State<_Skeleton>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _ctrl;
+  late Animation<double> _anim;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+    )..repeat(reverse: true);
+    _anim = Tween<double>(
+      begin: 0.3,
+      end: 0.7,
+    ).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut));
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
     return AnimatedBuilder(
-      animation: _shimmerAnim,
+      animation: _anim,
       builder: (context, _) {
-        final color = theme.colorScheme.onSurface
-            .withValues(alpha: _shimmerAnim.value * 0.15);
+        final color = theme.colorScheme.onSurface.withValues(
+          alpha: _anim.value * 0.15,
+        );
 
         return KpiCard(
           title: 'Estado de Clientes',
@@ -214,14 +232,10 @@ class _ClientStatusCardState extends State<ClientStatusCard>
           iconColor: theme.colorScheme.primary,
           child: Column(
             children: [
-              // Circle skeleton
               Container(
                 width: 150,
                 height: 150,
-                decoration: BoxDecoration(
-                  color: color,
-                  shape: BoxShape.circle,
-                ),
+                decoration: BoxDecoration(color: color, shape: BoxShape.circle),
               ),
               const SizedBox(height: 20),
               Row(
@@ -250,6 +264,8 @@ class _ClientStatusCardState extends State<ClientStatusCard>
     );
   }
 }
+
+// ─── Legend item ────────────────────────────────────────────────────────────
 
 class _LegendItem extends StatelessWidget {
   final String label;
