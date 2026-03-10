@@ -86,8 +86,12 @@ class _ClientsScreenState extends State<ClientsScreen> {
 
   List<Client> _applyFilters(List<Client> all) {
     return all.where((c) {
-      final matchesStatus = _activeStatus == null || c.status == _activeStatus;
-      if (!matchesStatus) return false;
+      // "Todos" excluye retirados; solo se ven con el chip "Retirados"
+      if (_activeStatus == null) {
+        if (c.status == ClientStatus.retirado) return false;
+      } else if (c.status != _activeStatus) {
+        return false;
+      }
       if (_searchQuery.isEmpty) return true;
       return c.name.toLowerCase().contains(_searchQuery) ||
           c.dni.toLowerCase().contains(_searchQuery) ||
@@ -142,7 +146,7 @@ class _ClientsScreenState extends State<ClientsScreen> {
           }).toList();
 
     return {
-      null: searched.length,
+      null: searched.where((c) => c.status != ClientStatus.retirado).length,
       ClientStatus.solvente: searched
           .where((c) => c.status == ClientStatus.solvente)
           .length,
