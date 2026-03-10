@@ -84,20 +84,82 @@ class _ClientsScreenState extends State<ClientsScreen> {
     });
   }
 
-  List<Client> _applyFilters(List<Client> all) {
-    return all.where((c) {
-      // "Todos" excluye retirados; solo se ven con el chip "Retirados"
-      if (_activeStatus == null) {
-        if (c.status == ClientStatus.retirado) return false;
-      } else if (c.status != _activeStatus) {
-        return false;
+  /// Tokeniza la query en palabras normalizadas (sin tildes, lowercase).
+  static List<String> _tokenize(String query) {
+    return query
+        .toLowerCase()
+        .split(RegExp(r'\s+'))
+        .map(_normalize)
+        .where((t) => t.isNotEmpty)
+        .toList();
+  }
+
+  /// Elimina tildes para comparación flexible.
+  static String _normalize(String s) {
+    const accents = 'áéíóúüñÁÉÍÓÚÜÑ';
+    const plain = 'aeiouunAEIOUUN';
+    return s.split('').map((c) {
+      final i = accents.indexOf(c);
+      return i >= 0 ? plain[i] : c;
+    }).join();
+  }
+
+  /// Calcula el score de coincidencia de un cliente con los tokens.
+  /// Retorna -1 si no hay ninguna coincidencia.
+  static int _score(Client c, List<String> tokens) {
+    if (tokens.isEmpty) return 0;
+
+    // Campos con peso: nombre > cédula/teléfono > sector
+    final fields = [
+      (value: _normalize(c.name.toLowerCase()), weight: 4),
+      (value: _normalize(c.dni.toLowerCase()), weight: 3),
+      (value: c.phone, weight: 3),
+      (value: _normalize(c.sectorName.toLowerCase()), weight: 2),
+    ];
+
+    int total = 0;
+    int matched = 0;
+
+    for (final token in tokens) {
+      bool tokenMatched = false;
+      for (final field in fields) {
+        if (field.value.contains(token)) {
+          total += field.weight;
+          tokenMatched = true;
+        }
       }
-      if (_searchQuery.isEmpty) return true;
-      return c.name.toLowerCase().contains(_searchQuery) ||
-          c.dni.toLowerCase().contains(_searchQuery) ||
-          c.phone.contains(_searchQuery) ||
-          c.sectorName.toLowerCase().contains(_searchQuery);
+      if (tokenMatched) matched++;
+    }
+
+    // Si ningún token coincide, excluir
+    if (matched == 0) return -1;
+    // Bonus por coincidencia de todos los tokens
+    if (matched == tokens.length) total += 5;
+    return total;
+  }
+
+  /// Filtra y ordena por relevancia cuando hay búsqueda activa.
+  List<Client> _applyFilters(List<Client> all) {
+    // Filtro de status
+    final statusFiltered = all.where((c) {
+      if (_activeStatus == null) return c.status != ClientStatus.retirado;
+      return c.status == _activeStatus;
     }).toList();
+
+    if (_searchQuery.isEmpty) return statusFiltered;
+
+    final tokens = _tokenize(_searchQuery);
+    if (tokens.isEmpty) return statusFiltered;
+
+    // Calcular score y descartar sin coincidencias
+    final scored =
+        statusFiltered
+            .map((c) => (client: c, score: _score(c, tokens)))
+            .where((e) => e.score >= 0)
+            .toList()
+          ..sort((a, b) => b.score.compareTo(a.score));
+
+    return scored.map((e) => e.client).toList();
   }
 
   Widget _buildBody(
@@ -117,6 +179,9 @@ class _ClientsScreenState extends State<ClientsScreen> {
     if (filtered.isEmpty) {
       return _EmptyState(hasSearch: _searchQuery.isNotEmpty);
     }
+
+    final tokens = _searchQuery.isEmpty ? <String>[] : _tokenize(_searchQuery);
+
     return ListView.builder(
       physics: const BouncingScrollPhysics(),
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
@@ -128,6 +193,7 @@ class _ClientsScreenState extends State<ClientsScreen> {
           padding: const EdgeInsets.only(bottom: 8),
           child: ClientCard(
             client: client,
+            highlightTokens: tokens,
             onTap: () => context.push('/client/${client.id}'),
           ),
         );
@@ -135,22 +201,9 @@ class _ClientsScreenState extends State<ClientsScreen> {
     );
   }
 
+  /// Conteos absolutos sobre la lista completa, sin considerar búsqueda.
   Map<ClientStatus?, int> _countsByStatus(List<Client> base) {
-    // Base con búsqueda aplicada
-    final searched = _searchQuery.isEmpty
-        ? base
-        : base.where((c) {
-            return c.name.toLowerCase().contains(_searchQuery) ||
-                c.dni.toLowerCase().contains(_searchQuery) ||
-                c.phone.contains(_searchQuery) ||
-                c.sectorName.toLowerCase().contains(_searchQuery);
-          }).toList();
-
-    // Base activos (sin retirados) para los chips Todos/Solventes/Morosos/Suspendidos
-    final activos = searched
-        .where((c) => c.status != ClientStatus.retirado)
-        .toList();
-
+    final activos = base.where((c) => c.status != ClientStatus.retirado);
     return {
       null: activos.length,
       ClientStatus.solvente: activos
@@ -162,7 +215,7 @@ class _ClientsScreenState extends State<ClientsScreen> {
       ClientStatus.suspendido: activos
           .where((c) => c.status == ClientStatus.suspendido)
           .length,
-      ClientStatus.retirado: searched
+      ClientStatus.retirado: base
           .where((c) => c.status == ClientStatus.retirado)
           .length,
     };
